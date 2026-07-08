@@ -1,6 +1,6 @@
 package com.example.domain
 
-object StressProxyAlgorithm {
+object StressProxyEstimator {
     enum class StressLevel { LOW, MODERATE, HIGH }
     
     fun estimate(rhrCurrent: Float, rhrBase: Float, hrvCurrent: Float, hrvBase: Float): StressLevel {

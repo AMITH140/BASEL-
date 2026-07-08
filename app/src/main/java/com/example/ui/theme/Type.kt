@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.sp
 
 // We will use SansSerif for a clean, premium look
 val BaselFontFamily = FontFamily.SansSerif
+val BaselNumberFontFamily = FontFamily.Monospace
 
 val Typography = Typography(
     displayLarge = TextStyle(

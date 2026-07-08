@@ -13,12 +13,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.domain.BaselAgeAlgorithm
+import com.example.domain.BaselAgeCalculator
 import com.example.ui.theme.*
 
 @Composable
 fun BaselAgeScreen() {
-    val result = BaselAgeAlgorithm.estimate(30, 52f, 45f, 75f, 80f)
+    val result = BaselAgeCalculator.estimate(30, 52f, 45f, 75f, 80f)
     
     Column(
         modifier = Modifier

@@ -52,16 +52,78 @@ import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
 
+import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.PermissionController
+import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.HeartRateRecord
+import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
+import androidx.health.connect.client.records.RestingHeartRateRecord
+import androidx.health.connect.client.records.SleepSessionRecord
+import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
+import androidx.lifecycle.lifecycleScope
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
+import com.example.data.HealthConnectWorker
+
 class MainActivity : ComponentActivity() {
+
+    private val permissions = setOf(
+        HealthPermission.getReadPermission(HeartRateRecord::class),
+        HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class),
+        HealthPermission.getReadPermission(RestingHeartRateRecord::class),
+        HealthPermission.getReadPermission(SleepSessionRecord::class),
+        HealthPermission.getReadPermission(StepsRecord::class),
+        HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class)
+    )
+
+    private val requestPermissionActivityContract = PermissionController.createRequestPermissionResultContract()
+    
+    private val requestPermissions = registerForActivityResult(requestPermissionActivityContract) { granted ->
+        if (granted.containsAll(permissions)) {
+            scheduleHealthConnectWorker()
+        }
+    }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
+    
+    checkPermissionsAndRun()
+
     setContent {
       BaselTheme {
         BaselApp()
       }
     }
   }
+
+    private fun checkPermissionsAndRun() {
+        if (HealthConnectClient.getSdkStatus(this) == HealthConnectClient.SDK_AVAILABLE) {
+            val client = HealthConnectClient.getOrCreate(this)
+            lifecycleScope.launch {
+                val granted = client.permissionController.getGrantedPermissions()
+                if (granted.containsAll(permissions)) {
+                    scheduleHealthConnectWorker()
+                } else {
+                    requestPermissions.launch(permissions)
+                }
+            }
+        }
+    }
+
+    private fun scheduleHealthConnectWorker() {
+        val workRequest = PeriodicWorkRequestBuilder<HealthConnectWorker>(15, TimeUnit.MINUTES)
+            .build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "HealthConnectSync",
+            ExistingPeriodicWorkPolicy.KEEP,
+            workRequest
+        )
+    }
 }
 
 @Composable
@@ -143,7 +205,7 @@ fun BaselApp() {
             startDestination = "home",
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable("home") { HomeScreen() }
+            composable("home") { HomeScreen(onNavigateToSleep = { navController.navigate("sleep_detail") }, onNavigateToStrain = { navController.navigate("strain_detail") }) }
             composable("trends") { TrendsScreen() }
             composable("journal") { JournalScreen() }
             composable("settings") { 
@@ -154,6 +216,8 @@ fun BaselApp() {
                 ) 
             }
             composable("debug") { DebugScreen() }
+            composable("sleep_detail") { com.example.ui.screens.SleepDetailScreen() }
+            composable("strain_detail") { com.example.ui.screens.StrainDetailScreen() }
             composable("basel_age") { com.example.ui.screens.BaselAgeScreen() }
             composable("monthly_assessment") { com.example.ui.screens.MonthlyAssessmentScreen() }
         }

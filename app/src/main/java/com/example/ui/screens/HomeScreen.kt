@@ -3,8 +3,6 @@ package com.example.ui.screens
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.clickable
-
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,6 +10,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,14 +22,25 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.components.RingChart
 import com.example.ui.theme.*
 import com.example.domain.RecommendationEngine
-import com.example.domain.StressProxyAlgorithm
+import com.example.domain.StressProxyEstimator
 import com.example.domain.SleepDebtTracker
 
 @Composable
-fun HomeScreen() {
-    val recommendation = RecommendationEngine.getRecommendation(78, 14.2f, 0)
-    val stress = StressProxyAlgorithm.estimate(52f, 50f, 45f, 50f)
-    val sleepDebtMins = SleepDebtTracker.calculateDebt(410, 480)
+fun HomeScreen(
+    viewModel: com.example.BaselViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+    onNavigateToSleep: () -> Unit = {},
+    onNavigateToStrain: () -> Unit = {}
+) {
+    val summary by viewModel.todaySummary.collectAsState()
+    
+    val recoveryScore = summary?.recoveryScore ?: 0
+    val strainScore = summary?.dayStrain ?: 0f
+    val sleepScore = summary?.sleepPerformance ?: 0
+    val restingHr = summary?.restingHr ?: 0
+    
+    val recommendation = RecommendationEngine.getRecommendation(recoveryScore, strainScore, 0)
+    val stress = StressProxyEstimator.estimate(restingHr.toFloat(), 50f, 45f, 50f)
+    val sleepDebtMins = SleepDebtTracker.calculateDebt((sleepScore / 100f * 480).toInt(), 480)
     val sleepDebtStr = SleepDebtTracker.formatDebt(sleepDebtMins)
 
     Column(
@@ -40,10 +51,11 @@ fun HomeScreen() {
             .padding(24.dp)
     ) {
         Text(
-            text = "OCT 24, 2023",
+            text = "SYSTEM CONFIGURATION",
             color = BaselTextSecondary,
-            fontSize = 12.sp,
-            letterSpacing = 2.sp,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp,
             fontFamily = BaselFontFamily
         )
         Spacer(modifier = Modifier.height(4.dp))
@@ -60,9 +72,9 @@ fun HomeScreen() {
                 fontFamily = BaselFontFamily
             )
             val stressColor = when (stress) {
-                StressProxyAlgorithm.StressLevel.LOW -> BaselGreen
-                StressProxyAlgorithm.StressLevel.MODERATE -> BaselYellow
-                StressProxyAlgorithm.StressLevel.HIGH -> BaselRed
+                StressProxyEstimator.StressLevel.LOW -> BaselGreen
+                StressProxyEstimator.StressLevel.MODERATE -> BaselYellow
+                StressProxyEstimator.StressLevel.HIGH -> BaselRed
             }
             Box(modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
@@ -75,12 +87,13 @@ fun HomeScreen() {
         Spacer(modifier = Modifier.height(32.dp))
         
         RingChart(
-            value = 78,
-            color = BaselGreen,
+            value = recoveryScore,
+            color = if (recoveryScore > 66) BaselGreen else if (recoveryScore > 33) BaselYellow else BaselRed,
             isEstimated = true,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 48.dp)
+                .aspectRatio(1f)
         )
         
         Spacer(modifier = Modifier.height(32.dp))
@@ -90,24 +103,24 @@ fun HomeScreen() {
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             SmallStatCard(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).clickable { onNavigateToSleep() },
                 title = "SLEEP PERF.",
-                value = "92%",
+                value = "$sleepScore%",
                 lineColor = BaselGreen,
                 subText = "Debt: $sleepDebtStr"
             )
             SmallStatCard(
                 modifier = Modifier.weight(1f),
                 title = "RESTING HR",
-                value = "48 bpm",
+                value = "$restingHr bpm",
                 lineColor = BaselPrimary,
-                subText = "-4 bpm vs baseline"
+                subText = "Based on overnight reading"
             )
         }
         
         Spacer(modifier = Modifier.height(24.dp))
         
-        DayStrainCard()
+        DayStrainCard(strainScore, onClick = onNavigateToStrain)
         
         Spacer(modifier = Modifier.height(24.dp))
         
@@ -127,25 +140,27 @@ fun SmallStatCard(modifier: Modifier = Modifier, title: String, value: String, l
             .aspectRatio(1f)
             .clip(RoundedCornerShape(24.dp))
             .background(BaselSurface)
-            .border(1.dp, BaselDivider.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
+            .border(1.dp, BaselDivider.copy(alpha=0.5f), RoundedCornerShape(24.dp))
             .padding(16.dp)
     ) {
-        Column {
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
             Text(
                 text = title,
                 color = BaselTextSecondary,
                 fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp,
+                fontWeight = FontWeight.Bold,
                 fontFamily = BaselFontFamily
             )
             Spacer(modifier = Modifier.weight(1f))
             Text(
                 text = value,
                 color = BaselTextPrimary,
-                fontSize = 28.sp,
+                fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                fontFamily = BaselFontFamily
+                fontFamily = BaselNumberFontFamily
             )
             if (subText.isNotEmpty()) {
                 Text(
@@ -156,7 +171,6 @@ fun SmallStatCard(modifier: Modifier = Modifier, title: String, value: String, l
                 )
             }
             Spacer(modifier = Modifier.height(4.dp))
-            // Placeholder for sparkline
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -168,13 +182,14 @@ fun SmallStatCard(modifier: Modifier = Modifier, title: String, value: String, l
 }
 
 @Composable
-fun DayStrainCard() {
+fun DayStrainCard(strainScore: Float = 0f, onClick: () -> Unit = {}) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
             .background(BaselSurface)
             .border(1.dp, BaselDivider.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
+            .clickable { onClick() }
             .padding(20.dp)
     ) {
         Column {
@@ -192,41 +207,32 @@ fun DayStrainCard() {
                     fontFamily = BaselFontFamily
                 )
                 Text(
-                    text = "4.2 of 12.0 target",
-                    color = BaselGreen,
+                    text = "$strainScore of 21.0 max",
+                    color = BaselPrimary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
-                    fontFamily = BaselFontFamily
+                    fontFamily = BaselNumberFontFamily
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = "14.2",
-                color = BaselTextPrimary,
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = BaselFontFamily
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(BaselBackground)
-            ) {
+            Box(modifier = Modifier.fillMaxWidth()) {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth(0.68f)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(
-                            androidx.compose.ui.graphics.Brush.horizontalGradient(
-                                colors = listOf(BaselPrimary, BaselGreen)
-                            )
-                        )
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(BaselSurfaceVariant)
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(strainScore / 21f)
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(BaselPrimary)
                 )
             }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Building strain. Consider a light workout to reach your target.", color = BaselTextSecondary, fontSize = 12.sp, fontFamily = BaselFontFamily)
         }
     }
 }
@@ -241,9 +247,9 @@ fun RecommendationCard(recommendation: RecommendationEngine.RecommendationState)
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .background(BaselSurface)
-            .border(1.dp, BaselDivider.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .background(BaselSurfaceVariant)
+            .border(1.dp, BaselDivider.copy(alpha=0.5f), RoundedCornerShape(16.dp))
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
             Box(
@@ -272,4 +278,3 @@ fun RecommendationCard(recommendation: RecommendationEngine.RecommendationState)
         }
     }
 }
-

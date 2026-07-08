@@ -41,7 +41,7 @@ fun BaselButton(
     Button(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(8.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = backgroundColor,
             contentColor = contentColor
@@ -74,7 +74,7 @@ fun BaselOutlinedButton(
     OutlinedButton(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(8.dp),
         border = BorderStroke(1.dp, borderColor),
         colors = ButtonDefaults.outlinedButtonColors(
             containerColor = backgroundColor,

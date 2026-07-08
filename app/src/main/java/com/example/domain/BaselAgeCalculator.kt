@@ -1,6 +1,6 @@
 package com.example.domain
 
-object BaselAgeAlgorithm {
+object BaselAgeCalculator {
     data class BaselAgeResult(val age: Int, val delta: Int, val drivingFactor: String)
 
     fun estimate(chronologicalAge: Int, rhr: Float, hrv: Float, sleepConsistency: Float, avgRecovery: Float): BaselAgeResult {
